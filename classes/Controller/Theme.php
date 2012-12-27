@@ -62,7 +62,7 @@ abstract class Controller_Theme extends Controller_Template {
 	{	
 		$theme = $this->theme();
 		$media = $this->media();
-		$controller = $this->request->controller();
+		$controller = strtolower($this->request->controller());
 	
 		//check for /theme/media/controller/file
 		$theme_media_controller_file = $theme.'/'.$media.'/'.$controller.'/'.$file;
