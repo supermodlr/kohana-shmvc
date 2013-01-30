@@ -2,16 +2,16 @@
 
 abstract class Controller_Page extends Controller_Theme {
 
-	/**
-	 * Default index template file to use
-	 */
-    public $index_template = NULL;	 
-    public $default_index_file = 'rootindex';	 
+   /**
+    * Default index template file to use
+    */
+   public $index_template = NULL;	 
+   public $default_index_file = 'rootindex';	 
 	
-    public $body_template = NULL;
-    public $default_body_file = 'body';	 
+   public $body_template = NULL;
+   public $default_body_file = 'body';	 
 	
-    public $content_type = 'html';
+   public $content_type = 'html';
 	
 	public $index_vars = array(
 		'title' => '',
@@ -109,13 +109,22 @@ abstract class Controller_Page extends Controller_Theme {
 	public function get_js($position, $defer = FALSE) 
 	{
       // If this is js code and not a path
-      if (in_array($position,$this->js_inline)) {
-         if (!isset($this->javascript[$position]) || !is_array($this->javascript[$position])) return '';
+      if (in_array($position,$this->js_inline))
+      {
+         if (!isset($this->javascript[$position]) || !is_array($this->javascript[$position]))
+            return '';
+
+
          $script = implode(PHP_EOL,$this->javascript[$position]);
-         if (!empty($script)) {
-            if ($position == 'ready') {
+
+         if (!empty($script))
+         {
+            if ($position == 'ready')
+            {
                $script = '$(document).ready(function(){'.$script.'});';
-            } else if ($position == 'load') {
+            }
+            else if ($position == 'load')
+            {
                $script = '$(window).load(function(){'.$script.'});';
             }
          return '
@@ -125,30 +134,39 @@ abstract class Controller_Page extends Controller_Theme {
 //]]>
 </script>
 ';
-         } else {
+         } 
+         else
             return '';
-         }
 
+      
+      }
       // Sort by weight and aggregate all paths for this position
-      } else {
+      else
+      {
 
-        // Stores all src's and filemtime's to create the aggregated file hash
-        $hash_context = '';
-        $external = '';
-        $internal = '';
-        $protocol = $this->request->protocol();
-        $files_dir = $this->get_files_dir();
-		$apppath = APPPATH;
-		$modpath = MODPATH.'supermodlr/';
-		if (!isset($this->javascript[$position]) || !is_array($this->javascript[$position])) $this->javascript[$position] = array();
+         // Stores all src's and filemtime's to create the aggregated file hash
+         $hash_context = '';
+         $external = '';
+         $internal = '';
+         $protocol = $this->request->protocol();
+         $files_dir = $this->get_files_dir();
+         $apppath = APPPATH;
+         $modpath = MODPATH.'supermodlr/';
+
+         if (!isset($this->javascript[$position]) || !is_array($this->javascript[$position]))
+            $this->javascript[$position] = array();
+
         // Loop through each weight key by sent position
-        foreach ($this->javascript[$position] as $weight => $js_set) {
+        foreach ($this->javascript[$position] as $weight => $js_set)
+        {
 
             // Loop through each js src at this weight level
-            foreach ($js_set as $i => $js) {
+            foreach ($js_set as $i => $js)
+            {
 
                // If this is an external include
-               if (substr($js['src'],0,7) == 'http://' || substr($js['src'],0,8) == 'https://') {
+               if (substr($js['src'],0,7) == 'http://' || substr($js['src'],0,8) == 'https://')
+               {
 
                   // Look for defer in either get_js call or add_js call
                   $defer_attr = ($defer || $js['defer']) ? ' defer="defer"' : '';
@@ -162,8 +180,11 @@ abstract class Controller_Page extends Controller_Theme {
                   // Unset so the aggregator doesn't try to include it
                   unset($this->javascript[$position][$weight][$i]);
 
+               
+               }
                // If this is an internal include
-               } else {
+               else
+               {
 
                   // Remove the leading forward slash, if present
                   $js['src'] = trim($js['src'], '/');
@@ -178,8 +199,8 @@ abstract class Controller_Page extends Controller_Theme {
 
                   // File does not exist, throw an error
                   } else {
-					throw new Kohana_Exception('Cannot get_js :dir',
-						array(':dir' => Debug::path($apppath.$js['src']).' OR '.Debug::path($modpath.$js['src']) ));				  
+                     throw new Kohana_Exception('Cannot get_js :dir',
+                        array(':dir' => Debug::path($apppath.$js['src']).' OR '.Debug::path($modpath.$js['src']) ));				  
 
                      // Remove this src from the list of valid files
                      unset($this->javascript[$position][$weight][$i]);
@@ -191,7 +212,8 @@ abstract class Controller_Page extends Controller_Theme {
          } // End file_exists
 
          // If no js, return nothing
-         if ($hash_context != '') {
+         if ($hash_context != '')
+         {
 
             // Calculates the hash
             $file_hash = md5($hash_context);
