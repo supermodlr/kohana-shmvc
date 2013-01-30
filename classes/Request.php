@@ -137,13 +137,20 @@ class Request extends Kohana_Request {
       // If no matching host is found, return FALSE
       return FALSE;
    }
+   
+   /**
+    * 
+    */
+   public function uri_parts() {
+      return explode('/', $this->uri());
+   }
 
    /**
     * 
     */
    public function is_mobile() 
    {
-   
+
    }
 
    /**
