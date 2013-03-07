@@ -54,42 +54,46 @@ class SHMVC_Request extends Kohana_Request {
 
 
       // Initialize the site (by alias?)
-      $host_cache_key = $this->host.'.host_cache';
-      $site_key = NULL;
-      if (class_exists('Cache'))
+      if (!defined('SITEPATH'))
       {
-        $site_key = Cache::instance()->get($host_cache_key);
-      }
-
-      // If the site was not found in cache, or cache is not enabled
-      if (is_null($site_key))
-      {
-         // Get the site_key based on current host
-         $site_key = $this->get_site_key($this->host);
-
-         // Write the cache file
+        $host_cache_key = $this->host.'.host_cache';
+        $site_key = NULL;
         if (class_exists('Cache'))
         {
-          Cache::instance()->set($host_cache_key, $site_key);
+          $site_key = Cache::instance()->get($host_cache_key);
+        }
+
+        // If the site was not found in cache, or cache is not enabled
+        if (is_null($site_key))
+        {
+           // Get the site_key based on current host
+           $site_key = $this->get_site_key($this->host);
+
+           // Write the cache file
+          if (class_exists('Cache'))
+          {
+            Cache::instance()->set($host_cache_key, $site_key);
+          }
+        }
+
+        if ($site_key) {
+           // Make the individual sitepath relative to the sitespath, for symlink'd index.php
+           if ( ! is_dir($site_key) AND is_dir(SITESPATH.$site_key))
+              $sitepath = SITESPATH.$site_key;
+
+           define('SITEPATH', realpath($sitepath).DIRECTORY_SEPARATOR);
+
+           // Add the site override path to Kohana::$_paths via Closure
+           $add_path_function = static function($path) {
+              array_unshift(static::$_paths, $path);
+              return static::$_paths;
+           };
+
+           $add_path = Closure::bind($add_path_function, NULL, 'Kohana');
+           $add_path(SITEPATH);
         }
       }
 
-      if ($site_key) {
-         // Make the individual sitepath relative to the sitespath, for symlink'd index.php
-         if ( ! is_dir($site_key) AND is_dir(SITESPATH.$site_key))
-            $sitepath = SITESPATH.$site_key;
-
-         define('SITEPATH', realpath($sitepath).DIRECTORY_SEPARATOR);
-
-         // Add the site override path to Kohana::$_paths via Closure
-         $add_path_function = static function($path) {
-            array_unshift(static::$_paths, $path);
-            return static::$_paths;
-         };
-
-         $add_path = Closure::bind($add_path_function, NULL, 'Kohana');
-         $add_path(SITEPATH);
-      }
 
    }
 
