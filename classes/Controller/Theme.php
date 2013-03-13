@@ -100,10 +100,9 @@ abstract class Controller_Theme extends Controller_Template {
 
 
 		$found = $this->override($file, $file_paths);
-		fbl($file_paths, $found['file']);
+		
 		if ($found)
 		{
-			//fbl($found['file'], 'found');
 			return $found['file'];
 		}
 		else
