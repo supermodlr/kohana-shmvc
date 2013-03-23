@@ -35,7 +35,7 @@ abstract class Controller_Theme extends Controller_Template {
 		// @todo Review/update this logic
 		$host = $this->request->host;
 		$host_array = array_reverse(explode('.', $host));
-		$sub_domain = $host_array[2];
+		$sub_domain = (count($host_array) > 2) ? $host_array[2] : 'default';
 		$theme = $sub_domain;
 		return $theme;
 	}
