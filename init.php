@@ -1,7 +1,7 @@
 <?php defined('SYSPATH') or die('No direct script access.');
 
 //load the environment (development/testing/staging/production) overrides config reader
-Kohana::$config->attach(new Config_File('config/'.strtolower($_SERVER['KOHANA_ENV'])));
+Kohana::$config->attach(new Config_File('config/'.strtolower(Kohana::$environment)));
 
 //load environment variable config file reader
 Kohana::$config->attach(new Config_Env());
