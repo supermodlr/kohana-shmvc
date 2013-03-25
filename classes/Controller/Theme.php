@@ -17,12 +17,12 @@ abstract class Controller_Theme extends Controller_Template {
 	public function before()
 	{
 		//detect theme
-		// @todo set and/or detect theme
+		// @todo set and/or detect themes
 		$this->theme = $this->theme();
 				
 		//defeat varnish cache for now
 		// @todo remove this (hack)
-		$this->response->headers('Cache-Control', 'no-cache, must-revalidate');	
+		$this->response->headers('Cache-Control', 'no-cache, must-revalidate'); 
 
 		$this->app_config = Kohana::$config->load('supermodlr');
 		
@@ -35,7 +35,7 @@ abstract class Controller_Theme extends Controller_Template {
 	 *  @return View with filename set based on $file
 	 */
 	public function set_template($file, $which = 'template') 
-	{	
+	{   
 		//if this template is not initialized
 		if (!isset($this->templates[$which]) || !is_object($this->templates[$which])) 
 		{
@@ -45,8 +45,23 @@ abstract class Controller_Theme extends Controller_Template {
 			$this->bind_vars($which);
 
 		}
+		// Find the file path for this template
+		$file_path = $this->find_template($file);
+
+		// get the file path info returned
+		$file_path_info = pathinfo($file_path);
+
+		if (isset($file_path_info['extension']) && $file_path_info['extension'] !== NULL && $file_path_info['extension'] !== '') 
+		{
+			$ext = $file_path_info['extension'];
+		}
+		else
+		{
+			$ext = NULL;
+		}
+
 		//set filename on the view
-		$this->templates[$which]->set_filename($this->find_template($file));
+		$this->templates[$which]->set_filename($file_path_info['dirname'].'/'.$file_path_info['filename'],$ext);
 		
 		//store default template on controller as 'template'
 		if ($which == 'template') 
@@ -57,11 +72,12 @@ abstract class Controller_Theme extends Controller_Template {
 	}
 	
 	/**
-	 *  finds a template file by looking in /theme/controller, then /theme, then /
+	 *  finds a template file by looking in /theme/media/controller, then /theme/media, then /theme
 	 *  @param $file (string) file name to search for among the theme/media files
+	 *  @param $path (string) prefix path subdirectory (including trailing slash)
 	 * returns string filepath and filename to be send to View::factory
 	 */
-	public function find_template($file) 
+	public function find_template($file, $path = '') 
 	{
 		// @todo create theme repo(s)
 
@@ -73,22 +89,24 @@ abstract class Controller_Theme extends Controller_Template {
 		$file_paths = array();
 
 		// Add override paths
-		$file_paths[] = $theme.'/'.$media.'/'.$controller;
-		$file_paths[] = $theme.'/'.$media;
-		$file_paths[] = $theme.'/'.$this->_default_media.'/'.$controller;
-		$file_paths[] = $this->_default_theme.'/'.$media.'/'.$controller;
-		$file_paths[] = $this->_default_theme.'/'.$this->_default_media.'/'.$controller;
-		$file_paths[] = $theme;
+		$file_paths[] = $path.$theme.'/'.$media.'/'.$controller;
+		$file_paths[] = $path.$theme.'/'.$media;
+		$file_paths[] = $path.$theme.'/'.$this->_default_media.'/'.$controller;
+		$file_paths[] = $path.$this->_default_theme.'/'.$media.'/'.$controller;
+		$file_paths[] = $path.$this->_default_theme.'/'.$this->_default_media.'/'.$controller;
+		$file_paths[] = $path.$theme;
 
 		// Ensure unique values
 		$file_paths = array_values(array_unique($file_paths));
 
 
-		$found = $this->override($file, $file_paths);
+		// Get all used template extensions
+		$extensions = $this->template_extension();
+
+		$found = $this->override($file, $file_paths, $extensions);
 		if ($found)
 		{
-			//fbl($found['file'], 'found');
-			return $found['file'];
+			return $found['file'].'.'.$found['ext'];
 		}
 		else
 		{
@@ -115,199 +133,250 @@ abstract class Controller_Theme extends Controller_Template {
 	/**
 	 * 
 	 */
-	public function override($name, $paths)
+	public function override($name, $paths, $extensions = array('php'), $max_depth = 5)
 	{
 		$multi_wildcards = FALSE;
 		$wildcards = FALSE;
 		$uri_parts = $this->request->uri_parts();
 
-      // Lob off the first uri part if its name is the same as the first part of the url
-      // to avoid having to name things redundantly (ie "section.section.12345.ctrl.php")
-      if ($uri_parts[0] == $name)
-         array_shift($parts);
+	  // Lob off the first uri part if its name is the same as the first part of the url
+	  // to avoid having to name things redundantly (ie "section.section.12345.ctrl.php")
+	  if ($uri_parts[0] == $name)
+		 array_shift($uri_parts);
 
-      $parts_set = array();
+	  // Maximum number of paths to use to check for file overrides
+	  if (count($uri_parts) > $max_depth) 
+	  {
+		 $uri_parts = array_slice($uri_parts, 0,$max_depth);
+	  }
 
-      // If an alias is set for this request, combine alias_parts and uri_parts, sorted by parts.length desc
-      /*if (isset($alias_parts) && is_array($alias_parts) && !empty($alias_parts)) {
-         //remove first part of alias if it is the same as the requested file
-         if ($alias_parts[0] == $name) {
-            array_shift($alias_parts);
-         }
+	  $parts_set = array();
 
-         $parts_temp = $alias_parts;
-         while (count($parts_temp) > 0) {
-            $parts_set[count($parts_temp)][] = $parts_temp;
-            array_pop($parts_temp);
-         }
-      }*/
+	  // If an alias is set for this request, combine alias_parts and uri_parts, sorted by parts.length desc
+	  /*if (isset($alias_parts) && is_array($alias_parts) && !empty($alias_parts)) {
+		 //remove first part of alias if it is the same as the requested file
+		 if ($alias_parts[0] == $name) {
+			array_shift($alias_parts);
+		 }
 
-      // Add in uri parts
-      $parts = $uri_parts;
-      while (count($parts) > 0)
-      {
-         $parts_set[count($parts)][] = $parts;
-         array_pop($parts);
-      }
+		 $parts_temp = $alias_parts;
+		 while (count($parts_temp) > 0) {
+			$parts_set[count($parts_temp)][] = $parts_temp;
+			array_pop($parts_temp);
+		 }
+	  }*/
 
-      ksort($parts_set);
-      $parts_set = array_reverse($parts_set, TRUE);
-      
-      $return_file = FALSE;
+	  // Add in uri parts
+	  $parts = $uri_parts;
+	  while (count($parts) > 0)
+	  {
+		 $parts_set[count($parts)][] = $parts;
+		 array_pop($parts);
+	  }
 
-      // Loop through each request uri sorted by count of parts, desc
-      foreach ($parts_set as $count => $req_parts)
-      {
-         foreach ($req_parts as $path_parts)
-         {
+	  ksort($parts_set);
+	  $parts_set = array_reverse($parts_set, TRUE);
+	  
+	  $return_file = FALSE;
 
-            // Loop through each path that we want to search, first found gets returned
-            foreach ($paths as $key => $path)
-            {
-            	// Ensure paths have trailing slash only
-            	$path = trim($path, '/').'/';
+	  // Loop through each request uri sorted by count of parts, desc
+	  foreach ($parts_set as $count => $req_parts)
+	  {
+		 foreach ($req_parts as $path_parts)
+		 {
 
-               // Check for hard override (all uri's are ignored if '$override' is sent and a matching file is found
-               // @todo re-enable this
-               /*if (!empty($override) && file_exists($path.$name.'.'.$override))
-               {
-                  $override_obj = array('file'=> $path.$name.'.'.$override, 'name'=> $name.'_'.$override);
-                  //@todo self::set_override_cache_key($path_override_key,$override_obj);
-                  return $override_obj;
-               }*/
+			// Loop through each path that we want to search, first found gets returned
+			foreach ($paths as $key => $path)
+			{
+				// Ensure paths have trailing slash only
+				$path = trim($path, '/').'/';
 
-               // Generate possible file name
-               $current_file = $name.".".implode('.',$path_parts);
+			   // Check for hard override (all uri's are ignored if '$override' is sent and a matching file is found
+			   // @todo re-enable this
+			   /*if (!empty($override) && file_exists($path.$name.'.'.$override))
+			   {
+				  $override_obj = array('file'=> $path.$name.'.'.$override, 'name'=> $name.'_'.$override);
+				  //@todo self::set_override_cache_key($path_override_key,$override_obj);
+				  return $override_obj;
+			   }*/
 
-               // Generate expected class name to be loaded (no periods are allowed in class names)
-               $current_name = $name."_".implode('_',$path_parts);
+			   // Generate possible file name
+			   $current_file = $name.".".implode('.',$path_parts);
 
-               // Look for file and return it if found
-					if (Kohana::find_file('views', $path.$current_file) !== FALSE)
-					{
-                  $return_file = $path.$current_file;
-                  $override_obj = array('file'=> $return_file, 'name'=> $current_name);
-                  // @todo self::set_override_cache_key($path_override_key, $override_obj);
-                  return $override_obj;
-               }
+			   // Generate expected class name to be loaded (no periods are allowed in class names)
+			   $current_name = $name."_".implode('_',$path_parts);
 
-               $checked = array();
+			   // Loop through all possible extensions
+			   foreach ($extensions as $ext)
+			   {
+				
+				   // Look for file and return it if found
+				   if (Kohana::find_file('views', $path.$current_file, $ext) !== FALSE)
+				   {
+					  $return_file = $path.$current_file;
+					  $override_obj = array('file'=> $return_file, 'ext'=> $ext, 'name'=> $current_name);
+					  // @todo self::set_override_cache_key($path_override_key, $override_obj);
+					  return $override_obj;
+				   }
+			   }
 
-               // If wild cards are enabled (ie '_' in a filename can replace any ONE part of the filename)
-               if ($wildcards)
-               {
-                  // Make a temp array
-                  $pparts = $path_parts;
+			   $checked = array();
 
-                  // Check for all possible single wildcards
-                  foreach ($path_parts as $i => $part) {
-                     // Replace one part with a '_'
-                     $pparts[$i] = '_';
-                     // Generate posible file name
-                     $current_file = $name.".".implode('.',$pparts);
-                     // Generate expected class name
-                     $current_name = $name."_".implode('_',$pparts);
-                     // Store this path so new know it was already checked (so multi_wildcards doesn't re-check the same path, if enabled)
-                     $checked[$path.$current_file] = TRUE;
+			   // If wild cards are enabled (ie '_' in a filename can replace any ONE part of the filename)
+			   if ($wildcards)
+			   {
+				  // Make a temp array
+				  $pparts = $path_parts;
 
-							if (Kohana::find_file('views', $path.$current_file) !== FALSE)
-							{
-                        $override_obj = array('file'=> $path.$current_file, 'name'=> $current_name);
-                        // @todo self::set_override_cache_key($path_override_key, $override_obj);
-                        return $override_obj;
-                     }
-                     // Replace this part with the actual part value again
-                     $pparts[$i] = $part;
-                  }
-               } // end [if ($wildcards) {}]
+				  // Check for all possible single wildcards
+				  foreach ($path_parts as $i => $part) {
+					 // Replace one part with a '_'
+					 $pparts[$i] = '_';
+					 // Generate posible file name
+					 $current_file = $name.".".implode('.',$pparts);
+					 // Generate expected class name
+					 $current_name = $name."_".implode('_',$pparts);
+					 // Store this path so new know it was already checked (so multi_wildcards doesn't re-check the same path, if enabled)
+					 $checked[$path.$current_file] = TRUE;
 
-               // If multiple wild cards are allowed (ie '_' in a filename can replace ANY or ALL parts of the filename)
-               if ($multi_wildcards) {
+					 // Loop through all possible extensions
+					 foreach ($extensions as $ext)
+					 {
+						 // Look for file and return it if found
+						 if (Kohana::find_file('views', $path.$current_file, $ext) !== FALSE)
+						 {
+							$return_file = $path.$current_file;
+							$override_obj = array('file'=> $return_file, 'ext'=> $ext, 'name'=> $current_name);
+							// @todo self::set_override_cache_key($path_override_key, $override_obj);
+							return $override_obj;
+						 }
+					 }
+					 // Replace this part with the actual part value again
+					 $pparts[$i] = $part;
+				  }
+			   } // end [if ($wildcards) {}]
 
-                  // Generate all possible combinations, excluding start and end in gray code
-                  $n = count($path_parts);
-                  $combos = array();
-                  for ($k = 1; $k < $n; $k++) {
-                     $combo = gray_code::enumNK($n, $k);
-                     $combos = array_merge($combo,$combos);
-                  }
+			   // If multiple wild cards are allowed (ie '_' in a filename can replace ANY or ALL parts of the filename)
+			   if ($multi_wildcards) {
 
-                  // Check each possible combination of wildcards
-                  foreach ($combos as $code)
-                  {
-                     // Store parts in temp array
-                     $pparts = $path_parts;
+				  // Generate all possible combinations, excluding start and end in gray code
+				  $n = count($path_parts);
+				  $combos = array();
+				  for ($k = 1; $k < $n; $k++) {
+					 $combo = gray_code::enumNK($n, $k);
+					 $combos = array_merge($combo,$combos);
+				  }
 
-                     // Convert this combination into an array
-                     $code_arry = str_split($code);
+				  // Check each possible combination of wildcards
+				  foreach ($combos as $code)
+				  {
+					 // Store parts in temp array
+					 $pparts = $path_parts;
 
-                     // Loop through each character in the code (it's either 1 or 0)
-                     foreach ($code_arry as $i => $v) {
-                        // Replace all '1' entries in this code with a '_' in the potential path
-                        if ($v == '1') $pparts[$i] = '_';
-                     }
-                     // Generate possible file name
-                     $current_file = $name.".".implode('.',$pparts).$ext;
+					 // Convert this combination into an array
+					 $code_arry = str_split($code);
 
-                     // Generate expected classname
-                     $current_name = $name."_".implode('_',$pparts);
+					 // Loop through each character in the code (it's either 1 or 0)
+					 foreach ($code_arry as $i => $v) {
+						// Replace all '1' entries in this code with a '_' in the potential path
+						if ($v == '1') $pparts[$i] = '_';
+					 }
+					 // Generate possible file name
+					 $current_file = $name.".".implode('.',$pparts);
 
-                     // Ensure this potential file path hasn't already been checked
-                     if (!isset($checked[$path.$current_file]) || !$checked[$path.$current_file])
-                     {
-                        // Mark this potential file path as checked
-                        $checked[$path.$current_file] = TRUE;
+					 // Generate expected classname
+					 $current_name = $name."_".implode('_',$pparts);
 
-                        // Check for the file
-                        if (file_exists($path.$current_file))
-                        {
-                           $return_file = $path.$current_file;
-                           $override_obj = array('file'=> $return_file, 'name'=> $current_name);
-                           // @todo self::set_override_cache_key($path_override_key, $override_obj);
-                           return $override_obj;
-                        }
-                     }
-                  }
-               } // end if ($multi_wildcards) {}
-            }
-         }
-      }
+					 // Ensure this potential file path hasn't already been checked
+					 if (!isset($checked[$path.$current_file]) || !$checked[$path.$current_file])
+					 {
+						// Mark this potential file path as checked
+						$checked[$path.$current_file] = TRUE;
 
-      // Loop through each path that we want to search, first found gets returned
-      foreach ($paths as $key => $path)
-      {
+						 // Loop through all possible extensions
+						 foreach ($extensions as $ext)
+						 {
+							 // Look for file and return it if found
+							 if (Kohana::find_file('views', $path.$current_file, $ext) !== FALSE)
+							 {
+								$return_file = $path.$current_file;
+								$override_obj = array('file'=> $return_file, 'ext'=> $ext, 'name'=> $current_name);
+								// @todo self::set_override_cache_key($path_override_key, $override_obj);
+								return $override_obj;
+							 }
+						 }
+					 }
+				  }
+			   } // end if ($multi_wildcards) {}
+			}
+		 }
+	  }
+
+	  // Loop through each path that we want to search, first found gets returned
+	   foreach ($paths as $key => $path)
+	  {
 			// Ensure paths have trailing slash only
 			$path = trim($path, '/').'/';
 
-         // Look for the parent override file
-         // @todo re-enable this
-         /*if (!empty($parent) && file_exists($path.$name.'.'.$parent.$ext)) {
-            $return_file = $path.$name.'.'.$parent.$ext;
-            $override_obj = array('file'=> $return_file, 'name'=> $name.'_'.$parent);
-            self::set_override_cache_key($path_override_key,$override_obj);
-            return $override_obj;
-         }*/
+		 // Look for the parent override file
+		 // @todo re-enable this
+		 /*if (!empty($parent) && file_exists($path.$name.'.'.$parent.$ext)) {
+			$return_file = $path.$name.'.'.$parent.$ext;
+			$override_obj = array('file'=> $return_file, 'name'=> $name.'_'.$parent);
+			self::set_override_cache_key($path_override_key,$override_obj);
+			return $override_obj;
+		 }*/
+		 // Loop through all possible extensions
+		 foreach ($extensions as $ext)
+		 {	   
+			 // Look for the requested file (default; no URI override)
+			 if (Kohana::find_file('views', $path.$name, $ext) !== FALSE)
+			 {
+				$return_file = $path.$name;
+				$override_obj = array('file'=> $return_file, 'ext'=> $ext, 'name'=> $name);
+				//@todo self::set_override_cache_key($path_override_key,$override_obj);
+				return $override_obj;
+			 }
+		 }
+	  }
+	  foreach ($extensions as $ext)
+	  {  
+		 // Check for /views/file (default location)
+		 if (Kohana::find_file('views', $name, $ext) !== FALSE)
+		 {
+			$return_file = $name;
+			$override_obj = array('file'=> $return_file, 'ext'=> $ext, 'name'=> $name);
+			//@todo self::set_override_cache_key($path_override_key,$override_obj);
+			return $override_obj;
+		 }
 
-         // Look for the requested file (default; no URI override)
-         if (Kohana::find_file('views', $path.$name) !== FALSE)
-         {
-            $override_obj = array('file'=> $path.$name, 'name'=> $name);
-            //@todo self::set_override_cache_key($path_override_key,$override_obj);
-            return $override_obj;
-         }
-      }
+	  }
 
-      return FALSE;
+	  return FALSE;
+	}
+
+	/**
+	 * template_extension gets an array of template extensions used to load a template file
+	 * 
+	 * @access public
+	 *
+	 * @return array Returns a keyed array of array('engine'=> '.{$EXT}').
+	 */
+	public function template_extension()
+	{
+		$templates = array('core'=> 'php');
+		Event::trigger('shmvc_template_extension',$templates);
+		return $templates;
 	}
 
 	/**
 	 *  binds a key/value to $this->template if it is set as a view, otherwise it stores the bind key/value.  Calling with no params will bind all stored key/values to $this->template if it is a view
 	 */
 	public function bind($key = NULL, &$val = NULL) 
-	{	
+	{   
 		//if a key and value was sent
 		if ($key !== NULL && $val !== NULL) 
-	    {
+		{
 			//check to see if template was already set as a view
 			if ($this->template instanceof View) 
 			{
@@ -316,7 +385,7 @@ abstract class Controller_Theme extends Controller_Template {
 			}
 			//if the template is just a string, store the key/value on the object for later binding
 			else
-			{	
+			{   
 				$this->binds[$key] = &$val;
 			}
 		}
@@ -368,30 +437,30 @@ abstract class Controller_Theme extends Controller_Template {
 		else
 		{
 			$this->_media = $media;
-		} 		
+		}	  
 	}
 
 	/**
 	 *  returns a value for media type based on user agent
 	 *  @return (string) media string based on request user agent
-	 */	
+	 */ 
 	public function init_media()
 	{
-	    if ($this->request->is_web()) 
-	    {
-	        return 'web';
-	    }
-		else if ($this->request->is_tablet()) 
-	    {
-	        return 'tablet';
-	    }
-		else if ($this->request->is_mobile()) 
-	    {
-	        return 'mobile';
-	    }
-        else 
+		if ($this->request->is_web()) 
 		{
-		    return 'web';
+			return 'web';
+		}
+		else if ($this->request->is_tablet()) 
+		{
+			return 'tablet';
+		}
+		else if ($this->request->is_mobile()) 
+		{
+			return 'mobile';
+		}
+		else 
+		{
+			return 'web';
 		}
 	}
 	
@@ -426,7 +495,7 @@ abstract class Controller_Theme extends Controller_Template {
 		$media = $this->media();
 		$controller = $this->request->controller();
 	
-		//check for /init		
+		//check for /init	  
 		$init = 'init';
 		
 		if (Kohana::find_file('views', $init) !== FALSE)
@@ -435,27 +504,27 @@ abstract class Controller_Theme extends Controller_Template {
 			$init_template->bind('controller',$this);
 			$init_template->bind('request',$this->request);
 			$init_template->render();
-		}	
+		}   
 		
-		//check for /theme/init		
+		//check for /theme/init  
 		$theme_init = $theme.'/init';
 		if (Kohana::find_file('views', $theme_init) !== FALSE)
 		{
 			$init_template = View::factory($theme_init);
 			$init_template->bind('controller',$this);
-			$init_template->bind('request',$this->request);			
+			$init_template->bind('request',$this->request);	  
 			$init_template->render();
 		}
 
-		//check for /theme/media/init		
+		//check for /theme/media/init	  
 		$theme_media_init = $theme.'/'.$media.'/init';
 		if (Kohana::find_file('views', $theme_media_init) !== FALSE)
 		{
 			$init_template = View::factory($theme_media_init);
 			$init_template->bind('controller',$this);
-			$init_template->bind('request',$this->request);			
+			$init_template->bind('request',$this->request);	  
 			$init_template->render();
-		}		
+		}	  
 		
 		//check for /theme/default/controller/init
 		$theme_controller_init = $theme.'/default/'.$controller.'/init';
@@ -463,9 +532,9 @@ abstract class Controller_Theme extends Controller_Template {
 		{
 			$init_template = View::factory($theme_controller_init);
 			$init_template->bind('controller',$this);
-			$init_template->bind('request',$this->request);			
+			$init_template->bind('request',$this->request);	  
 			$init_template->render();
-		} 		
+		}	  
 
 		//check for /theme/media/controller/init
 		$theme_media_controller_init = $theme.'/'.$media.'/'.$controller.'/init';
@@ -473,9 +542,9 @@ abstract class Controller_Theme extends Controller_Template {
 		{
 			$init_template = View::factory($theme_media_controller_init);
 			$init_template->bind('controller',$this);
-			$init_template->bind('request',$this->request);			
+			$init_template->bind('request',$this->request);	  
 			$init_template->render();
-		} 		
+		}	  
 
 	}
 	
@@ -505,7 +574,7 @@ abstract class Controller_Theme extends Controller_Template {
 	
 	/**
 	 *  Displays a view using the block_controller. This means that it is not wrapped by the standard index or body templates and can be called all by itself by esi
-	 */	
+	 */ 
 	public function block($params) 
 	{
 		//if $params is not an array, assume it is the uri
@@ -535,7 +604,7 @@ abstract class Controller_Theme extends Controller_Template {
 	
 	/**
 	 *  Displays a view usig the current controller
-	 */	
+	 */ 
 	public function view($params) 
 	{
 		//if $params is not an array, assume it is the uri
