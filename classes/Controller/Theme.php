@@ -16,9 +16,8 @@ abstract class Controller_Theme extends Controller_Template {
 	 */
 	public function before()
 	{
-		//detect theme
-		// @todo set and/or detect themes
-		$this->theme = $this->theme();
+		// Detect and set theme
+		if (is_null($this->_theme)) $this->theme($this->detect_theme());
 				
 		//defeat varnish cache for now
 		// @todo remove this (hack)
@@ -27,7 +26,21 @@ abstract class Controller_Theme extends Controller_Template {
 		$this->app_config = Kohana::$config->load('supermodlr');
 		
 	}
-	
+
+	/**
+	 * 
+	 */
+	public function detect_theme()
+	{
+		// @todo Review/update this logic
+		$host = $this->request->host;
+		$host_array = array_reverse(explode('.', $host));
+		$sub_domain = (count($host_array) > 2) ? $host_array[2] : 'default';
+		$theme = $sub_domain;
+		return $theme;
+	}
+
+
 	/**
 	 *  sets a template file to a template object.  $which can be index, body, '' (meaning content template), or any other view name
 	 *  @param $file (string) filename for this view
@@ -89,12 +102,14 @@ abstract class Controller_Theme extends Controller_Template {
 		$file_paths = array();
 
 		// Add override paths
-		$file_paths[] = $path.$theme.'/'.$media.'/'.$controller;
-		$file_paths[] = $path.$theme.'/'.$media;
-		$file_paths[] = $path.$theme.'/'.$this->_default_media.'/'.$controller;
-		$file_paths[] = $path.$this->_default_theme.'/'.$media.'/'.$controller;
-		$file_paths[] = $path.$this->_default_theme.'/'.$this->_default_media.'/'.$controller;
-		$file_paths[] = $path.$theme;
+		$file_paths[] = $theme.'/'.$media.'/'.$controller;
+		$file_paths[] = $theme.'/'.$media;
+		$file_paths[] = $theme.'/'.$this->_default_media.'/'.$controller;
+		$file_paths[] = $this->_default_theme.'/'.$media.'/'.$controller;
+		$file_paths[] = $this->_default_theme.'/'.$this->_default_media.'/'.$controller;
+		$file_paths[] = $this->_default_theme.'/'.$this->_default_media;
+		$file_paths[] = $theme;
+		$file_paths[] = $this->_default_theme;
 
 		// Ensure unique values
 		$file_paths = array_values(array_unique($file_paths));
@@ -104,6 +119,7 @@ abstract class Controller_Theme extends Controller_Template {
 		$extensions = $this->template_extension();
 
 		$found = $this->override($file, $file_paths, $extensions);
+		
 		if ($found)
 		{
 			return $found['file'].'.'.$found['ext'];
