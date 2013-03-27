@@ -150,8 +150,6 @@ abstract class Controller_Page extends Controller_Theme {
          $internal = '';
          $protocol = $this->request->protocol();
          $files_dir = $this->get_files_dir();
-         $apppath = APPPATH;
-         $modpath = MODPATH.'supermodlr/';
 
          if (!isset($this->javascript[$position]) || !is_array($this->javascript[$position]))
             $this->javascript[$position] = array();
@@ -190,17 +188,17 @@ abstract class Controller_Page extends Controller_Theme {
                   $js['src'] = trim($js['src'], '/');
 
                   // Make sure the file exists
-                  if (file_exists($apppath.$js['src'])) {
-                     $mtime = filemtime($apppath.$js['src']);
+                  if (file_exists(APPPATH.$js['src'])) {
+                     $mtime = filemtime(APPPATH.$js['src']);
                      $hash_context .= $js['src'].$mtime;
-                  } else if (file_exists($modpath.$js['src'])) {
-                     $mtime = filemtime($modpath.$js['src']);
+                  } else if (file_exists(MODPATH.$js['src'])) {
+                     $mtime = filemtime(MODPATH.$js['src']);
                      $hash_context .= $js['src'].$mtime;
 
                   // File does not exist, throw an error
                   } else {
                      throw new Kohana_Exception('Cannot get_js :dir',
-                        array(':dir' => Debug::path($apppath.$js['src']).' OR '.Debug::path($modpath.$js['src']) ));				  
+                        array(':dir' => Debug::path(APPPATH.$js['src']).' OR '.Debug::path(MODPATH.$js['src']) ));				  
 
                      // Remove this src from the list of valid files
                      unset($this->javascript[$position][$weight][$i]);
@@ -233,14 +231,14 @@ abstract class Controller_Page extends Controller_Theme {
                   foreach ($js_set as $js) {
 
                      // Assume file exists since it is checked during the hash generation
-					 if (file_exists($apppath.$js['src']))
+					 if (file_exists(APPPATH.$js['src']))
 					 {
-						$js_contents = file_get_contents($apppath.$js['src']);
+						$js_contents = file_get_contents(APPPATH.$js['src']);
 					 }
 					 
-					 else if (file_exists($modpath.$js['src']))
+					 else if (file_exists(MODPATH.$js['src']))
 					 {
-						$js_contents = file_get_contents($modpath.$js['src']);
+						$js_contents = file_get_contents(MODPATH.$js['src']);
 					 }
 					 else
 					 {
