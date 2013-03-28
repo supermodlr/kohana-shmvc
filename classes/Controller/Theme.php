@@ -93,7 +93,6 @@ abstract class Controller_Theme extends Controller_Template {
 	public function find_template($file, $path = '') 
 	{
 		// @todo create theme repo(s)
-fbl('Controller_Theme find_template');
 		$theme = $this->theme();
 		$media = $this->media();
 		$controller = strtolower($this->request->controller());
@@ -119,7 +118,6 @@ fbl('Controller_Theme find_template');
 		$extensions = $this->template_extension();
 
 		$found = $this->override($file, $file_paths, $extensions);
-		fbl($found);
 		if ($found)
 		{
 			return $found['file'].'.'.$found['ext'];
