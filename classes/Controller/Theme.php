@@ -48,7 +48,7 @@ abstract class Controller_Theme extends Controller_Template {
 	 *  @return View with filename set based on $file
 	 */
 	public function set_template($file, $which = 'template') 
-	{   
+	{
 		//if this template is not initialized
 		if (!isset($this->templates[$which]) || !is_object($this->templates[$which])) 
 		{
@@ -93,7 +93,7 @@ abstract class Controller_Theme extends Controller_Template {
 	public function find_template($file, $path = '') 
 	{
 		// @todo create theme repo(s)
-
+fbl('Controller_Theme find_template');
 		$theme = $this->theme();
 		$media = $this->media();
 		$controller = strtolower($this->request->controller());
@@ -119,7 +119,7 @@ abstract class Controller_Theme extends Controller_Template {
 		$extensions = $this->template_extension();
 
 		$found = $this->override($file, $file_paths, $extensions);
-		
+		fbl($found);
 		if ($found)
 		{
 			return $found['file'].'.'.$found['ext'];
@@ -394,7 +394,7 @@ abstract class Controller_Theme extends Controller_Template {
 		if ($key !== NULL && $val !== NULL) 
 		{
 			//check to see if template was already set as a view
-			if ($this->template instanceof View) 
+			if ($this->template instanceof SHMVC_View) 
 			{
 				$this->template->bind($key,$val);
 				$this->binds[$key] = &$val;
@@ -421,7 +421,7 @@ abstract class Controller_Theme extends Controller_Template {
 	public function bind_vars($template = 'template')
 	{
 		//check to see if template is set as a view
-		if (isset($this->templates[$template]) && $this->templates[$template] instanceof View) 
+		if (isset($this->templates[$template]) && $this->templates[$template] instanceof SHMVC_View) 
 		{
 
 			$this->templates[$template]->bind('controller',$this);

@@ -385,7 +385,7 @@ abstract class Controller_Page extends Controller_Theme {
 	    if (is_null($body)) 
 	    {
 			//if no body was set directly, find a file based on the default_body_file if it is not null
-		/*	if (is_null($this->index_vars['body']) && is_object($this->body_template) && $this->body_template instanceof View) 
+		/*	if (is_null($this->index_vars['body']) && is_object($this->body_template) && $this->body_template instanceof SHMVC_View) 
 			{		
 				//render content template
 				$this->index_vars['body'] = $this->body_template->render();

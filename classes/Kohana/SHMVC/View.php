@@ -1,6 +1,6 @@
 <?php
 
-class SHMVC_View extends Kohana_View {
+class Kohana_SHMVC_View extends Kohana_View {
 
 
     /**
